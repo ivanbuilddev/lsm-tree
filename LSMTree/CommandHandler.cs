@@ -35,7 +35,9 @@ public static class CommandHandler
                 Console.WriteLine("Usage: set <key> <value>  : Set a key-value pair");
                 Console.WriteLine("       get <key>          : Get a value given the pair");
                 Console.WriteLine("       delete <key>       : Delete a key-value pair");
+                Console.WriteLine("       compaction         : Compact data into a single file");
                 Console.WriteLine("       terminal           : Execute as continous terminal");
+                Console.WriteLine("       help               : Get help with usage");
                 return;
             default:
                 Console.WriteLine("Unknown command '{0}'", command);
