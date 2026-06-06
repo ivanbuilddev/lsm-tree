@@ -20,7 +20,7 @@ public static class Memtable
         return data;
     }
 
-    public static string Get(string key, bool verbose = true)
+    public static string Get(string key)
     { 
         try
         {
@@ -35,7 +35,7 @@ public static class Memtable
         }
         catch { return ""; }
     }
-    public static bool Set(string key, string value, bool verbose = true)
+    public static bool Set(string key, string value)
     {
         try
         {
@@ -51,13 +51,14 @@ public static class Memtable
         }
         catch { return false; }
     }
-    public static bool Delete(string key, bool verbose = true)
+    public static bool Delete(string key)
     {
         try
         {
             if(!_memtable.ContainsKey(key))
             {
-                return false;
+                _memtable.Add(key, _tombstone);
+                return true;
             }
             else
             {
@@ -68,7 +69,7 @@ public static class Memtable
         catch { return false; }
     }
 
-    public static bool ExecuteWALCommand(string command, bool verbose = true)
+    public static bool ExecuteWALCommand(string command)
     {
         if(string.IsNullOrEmpty(command)) return false;
         string[] _parts = command.Split('|', StringSplitOptions.RemoveEmptyEntries);
@@ -76,10 +77,10 @@ public static class Memtable
         {
             case "set":
                 if(_parts.Length < 3) return false;
-                return Set(_parts[1], _parts[2], verbose);
+                return Set(_parts[1], _parts[2]);
             case "delete":
                 if(_parts.Length < 2) return false;
-                Delete(_parts[1], verbose);
+                Delete(_parts[1]);
                 return true;
             default:
                 return false;

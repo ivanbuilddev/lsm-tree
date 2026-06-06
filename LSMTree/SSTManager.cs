@@ -22,6 +22,7 @@ public static class SSTManager
     {
         string newFilePath = Path.Combine(_path, "sst_" + _nextIndex.ToString().PadLeft(3, '0') + ".sst");
         File.AppendAllLines(newFilePath, data);
+        _nextIndex = _nextIndex + 1;
     }
 
     private static string[] GetFiles() => Directory.GetFiles(_path, "*.sst");
@@ -63,16 +64,17 @@ public static class SSTManager
             compactValues.Remove(s);
         }
 
+        string newFilePath = Path.Combine(_path, "sst_" + "1".ToString().PadLeft(3, '0') + ".sst");
+        string newFilePathTemp = newFilePath + ".tmp";;
         foreach(string key in compactValues.Keys)
         {
-            string newFilePath = Path.Combine(_path, "sst_" + _nextIndex.ToString().PadLeft(3, '0') + ".sst");
-            string newFilePathTemp = newFilePath + ".tmp";
-            File.AppendAllText(newFilePath, compactValues[key] + "\n");
-            foreach(string file in files)
-            {
-                File.Delete(file);
-            }
-            File.Move(newFilePathTemp, newFilePath);
+            File.AppendAllText(newFilePathTemp, compactValues[key] + "\n");
         }
+        foreach(string file in files)
+        {
+            File.Delete(file);
+        }
+        File.Move(newFilePathTemp, newFilePath);
+        _nextIndex = 2;
     }
 }
