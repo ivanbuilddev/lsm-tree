@@ -1,3 +1,7 @@
+using System.Reflection.Metadata.Ecma335;
+using System.Windows.Markup;
+using Microsoft.Win32;
+
 public static class SSTManager
 {
     private static string _path = "";
@@ -20,6 +24,7 @@ public static class SSTManager
 
     public static void CopyData(List<string> data)
     {
+        if(data.Count == 0) return;
         string newFilePath = Path.Combine(_path, "sst_" + _nextIndex.ToString().PadLeft(3, '0') + ".sst");
         File.AppendAllLines(newFilePath, data);
         _nextIndex = _nextIndex + 1;
@@ -45,17 +50,32 @@ public static class SSTManager
         Dictionary<string, string> compactValues = new Dictionary<string, string>();
         List<string> files = GetFiles().OrderByDescending(f => f).ToList();
         List<string> tombstones = new List<string>();
-        foreach(string file in files)
+        SSTReader[] readers = files.Select(path => new SSTReader(path)).ToArray(); 
+        PriorityQueue<(string key, string value, int sstIndex), string> minHeap = new PriorityQueue<(string key, string value, int sstIndex), string>();
+
+        for(int i = 0; i < readers.Length; i++)
         {
-            foreach(string line in File.ReadAllLines(file))
+            if(readers[i].HasNext())
             {
-                string[] parts = line.Split('|');
-                if(!compactValues.ContainsKey(parts[0]))
-                {
-                    compactValues.Add(parts[0], parts[0] + "|" + parts[1]);
-                    if(parts[1] == "__tombstone__")
-                        tombstones.Add(parts[0]);
-                }
+                (string key, string value) = readers[i].ReadNext();
+                minHeap.Enqueue((key, value, i), key);
+            }
+        }
+
+        while(minHeap.Count > 0)
+        {
+            (string key, string value, int sstIndex) = minHeap.Dequeue();
+
+            if(!compactValues.ContainsKey(key))
+            {
+                compactValues.Add(key, key + "|" + value);
+                if(value == "__tombstone__") tombstones.Add(key);
+            }
+            
+            if(readers[sstIndex].HasNext())
+            {
+                (string newKey, string newValue) = readers[sstIndex].ReadNext();
+                minHeap.Enqueue((newKey, newValue, sstIndex), newKey);
             }
         }
 
@@ -64,17 +84,27 @@ public static class SSTManager
             compactValues.Remove(s);
         }
 
-        string newFilePath = Path.Combine(_path, "sst_" + "1".ToString().PadLeft(3, '0') + ".sst");
-        string newFilePathTemp = newFilePath + ".tmp";;
-        foreach(string key in compactValues.Keys)
+        if(compactValues.Count > 0)
         {
-            File.AppendAllText(newFilePathTemp, compactValues[key] + "\n");
+            string newFilePath = Path.Combine(_path, "sst_" + "1".ToString().PadLeft(3, '0') + ".sst");
+            string newFilePathTemp = newFilePath + ".tmp";
+            foreach(string key in compactValues.Keys)
+            {
+                File.AppendAllText(newFilePathTemp, compactValues[key] + "\n");
+            }
+            foreach(string file in files)
+            {
+                File.Delete(file);
+            }
+            File.Move(newFilePathTemp, newFilePath);
+            _nextIndex = 2;
         }
-        foreach(string file in files)
+        else
         {
-            File.Delete(file);
+            foreach(string file in files)
+            {
+                File.Delete(file);
+            }
         }
-        File.Move(newFilePathTemp, newFilePath);
-        _nextIndex = 2;
     }
 }

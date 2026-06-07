@@ -28,6 +28,7 @@ public static class Database
         }
         else { Console.WriteLine(value); }
     }
+
     public static void Set(string key, string value)
     {
         WriteAheadLog.WriteToWAL($"set|{key}|{value}");
@@ -38,7 +39,7 @@ public static class Database
         }
     }
 
-    public static void WriteToSTT()
+    private static void WriteToSTT()
     {
         SSTManager.CopyData(Memtable.ToDataList());
         Memtable.Flush();
@@ -49,6 +50,10 @@ public static class Database
     {
         WriteAheadLog.WriteToWAL($"delete|{key}");
         Memtable.Delete(key);
+        if (Memtable.IsInThreshold())
+        {
+            WriteToSTT();
+        }
     }
 
     public static void Compaction()
